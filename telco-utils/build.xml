@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="billing-ng-core" default="dist" basedir=".">
+
+    <!-- properties -->
+    <property name="root.dir" location=".."/>
+    <property file="${root.dir}/build.properties"/>
+
+    <property name="jar.dir" value="${build.dir}/${ant.project.name}.jar"/>
+    <property name="classes.dir" value="${jar.dir}/"/>
+
+
+    <!-- paths -->
+    <path id="compile.classpath">
+    </path>
+
+    <path id="compile.test.classpath">
+        <path refid="compile.classpath"/>
+        <fileset dir="${testng.dir}" includes="testng-*.jar"/>
+        <fileset dir="${hamcrest.dir}" includes="hamcrest-all-*.jar"/>
+        <pathelement path="${classes.dir}"/>
+    </path>
+
+    <path id="test.classpath">
+        <pathelement path="${test-build.dir}"/>
+        <path refid="compile.test.classpath"/>
+    </path>
+
+    
+    <!-- targets -->
+    <target  name="reformat-text" description="Cleans up text files and sets the appropriate EOL character.">
+        <fixcrlf srcdir="${src.dir}/main/java" includes="**/*.java"
+                 tab="remove" tablength="4" javafiles="yes"
+                 eol="unix"/>
+    </target>
+
+
+    <!--
+        testing targets
+    -->
+    <target name="test.all" depends="compile.tests" description="Run all tests.">
+        <testng suitename="${ant.project.name} unit test suite"
+                testname="${ant.project.name} test.all "
+                classpathref="test.classpath"
+                outputDir="${test-results.dir}/testng/"
+                failureProperty="test.failure"
+                verbose="${testng.verbose}">
+
+            <classfileset dir="${test-build.dir}">
+                <include name="**/*Test*.class"/>
+                <exclude name="**/*Tester*.class"/>
+            </classfileset>                       
+        </testng>
+
+        <antcall target="test.reports"/>       
+    </target>
+
+    <target name="test.groups" depends="compile.tests" if="test.groups" description="Run a specific test configuration set by -Dtest.groups">
+        <testng suitename="${ant.project.name} unit test suite"
+                testname="${ant.project.name} '${test.groups}' test.groups "
+                groups="${test.groups}"
+                classpathref="test.classpath"
+                outputDir="${test-results.dir}/testng/"
+                failureProperty="test.failure"
+                verbose="${testng.verbose}">
+
+            <classfileset dir="${test-build.dir}">
+                <include name="**/*Test*.class"/>
+                <exclude name="**/*Tester*.class"/>
+            </classfileset>
+        </testng>        
+
+        <antcall target="test.reports"/>
+    </target>
+
+    <target name="test.failed" depends="init" description="Re-run all previously failed tests.">
+        <property name="build.noclean" value="true"/>
+        <antcall target="compile.tests"/>
+
+        <testng classpathref="test.classpath"
+                outputDir="${test-results.dir}/testng/"
+                failureProperty="test.failure"
+                verbose="${testng.verbose}">
+
+            <xmlfileset dir="${test-results.dir}/testng/" includes="testng-failed.xml"/>
+        </testng>
+
+        <antcall target="test.reports"/>
+    </target>
+
+    <target name="test.reports" unless="test.noreport">
+        <junitreport todir="${test-results.dir}">
+            <fileset dir="${test-results.dir}/testng/">
+                <include name="*/*.xml"/>
+            </fileset>
+            <report format="noframes"  todir="${test-results.dir}/pretty"/>
+        </junitreport>
+        <fail if="test.failure" message="${ant.project.name} tests failed, see testing reports for details."/>
+    </target>
+
+    <target name="compile.tests" depends="compile">
+        <mkdir dir="${test-build.dir}"/>
+        <mkdir dir="${test-results.dir}/testng"/>
+        <mkdir dir="${test-results.dir}/pretty"/>
+
+        <javac srcdir="${src.dir}/test"
+               destdir="${test-build.dir}"
+               classpathref="compile.test.classpath"
+               source="${javac.source}"
+               target="${javac.target}"
+               includeantruntime="false"
+               debug="${javac.debug}" fork="${javac.fork}" deprecation="${javac.deprecation}" nowarn="${javac.nowarn}">
+        </javac>
+    </target>
+
+
+    <!--
+        build targets    
+    -->
+    <target name="dist"
+            depends="build, git.revision"
+            description="Build and package as a distributable .jar file.">
+
+        <mkdir dir="${dist.dir}" />
+
+        <!-- package the jar -->
+        <tstamp/>
+        <jar destfile="${dist.dir}/${ant.project.name}.jar" basedir="${jar.dir}">
+            <manifest>
+                <attribute name="Built-By" value="${user.name}"/>
+                <attribute name="Built-On" value="${DSTAMP}-${TSTAMP}"/>
+                <attribute name="Specification-Title" value="Telco Utilities"/>
+                <attribute name="Specification-Version" value="${release.version}"/>
+                <attribute name="Specification-Vendor" value="Pointyspoon.com"/>
+
+                <attribute name="Package-Title" value="${ant.project.name}"/>
+                <attribute name="Package-Version" value="${git.revision}"/>
+                <attribute name="Package-Vendor" value="Pointyspoon.com"/>
+            </manifest>
+        </jar>
+    </target>
+
+    <target name="git.revision" unless="git.revision">
+        <exec executable="git" outputproperty="git.revision">
+            <arg value="describe"/>
+            <arg value="--tags"/>
+            <arg value="--always"/>
+            <arg value="--abbrev=13"/>
+            <arg value="HEAD"/>
+        </exec>
+        <echo message="Last commit '${git.revision}'"/>
+    </target>
+
+    <target name="build" depends="compile" description="Build the exploded .jar for packaging.">
+        <mkdir dir="${build.dir}"/>
+        <copy todir="${jar.dir}">
+            <fileset dir="${src.dir}/main/resources" excludes="hibernate.cfg.xml"/>
+        </copy>
+    </target>
+
+    <target name="compile" depends="clean, init" unless="build.compiled">
+        <mkdir dir="${classes.dir}"/>
+        <javac srcdir="${src.dir}/main"
+               destdir="${classes.dir}"
+               classpathref="compile.classpath"
+               source="${javac.source}"
+               target="${javac.target}"
+               includeantruntime="false"
+               debug="${javac.debug}" fork="${javac.fork}" deprecation="${javac.deprecation}" nowarn="${javac.nowarn}">
+        </javac>
+
+        <copy todir="${classes.dir}">
+            <fileset dir="${src.dir}/main/java" includes="**/*.index"/>
+        </copy>
+
+        <property name="build.compiled" value="true"/> <!-- compile once per session -->
+        <property name="build.noclean" value="true"/> <!-- clean once per session -->                
+    </target>
+
+    <target name="init">
+        <!-- nothing to init for this build -->
+    </target>
+
+    <target name="clean" description="Remove old build artifacts and temp files." unless="build.noclean">
+        <delete dir="${build.dir}"/>
+        <delete dir="${dist.dir}"/>
+        <delete dir="${test-build.dir}"/>
+        <delete dir="${test-results.dir}"/>
+    </target>
+</project>

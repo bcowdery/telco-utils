@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="telco-utils" default="dist" basedir=".">
+
+    <!-- properties -->
+    <property name="root.dir" location="."/>
+    <property file="${root.dir}/build.properties"/>
+
+    <!-- targets -->
+    <target name="dist" depends="init" description="Build and package all components as distributable .jar files.">
+        <ant dir="${telco-utils.dir}" target="dist" inheritall="false" inheritrefs="false"/>
+
+        <copy todir="${dist.dir}">
+            <fileset dir="${telco-utils.dist}" includes="*.jar"/>
+        </copy>
+    </target>
+
+    <target name="init" depends="clean">
+        <mkdir dir="${dist.dir}"/>
+    </target>
+
+    <target name="clean" description="Remove old build artifacts and temp files." unless="build.noclean">
+        <delete dir="${dist.dir}"/>
+        <ant dir="${telco-utils.dir}" target="clean" inheritall="false" inheritrefs="false"/>        
+    </target>
+</project>
