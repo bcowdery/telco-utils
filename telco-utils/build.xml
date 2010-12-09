@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project name="billing-ng-core" default="dist" basedir=".">
+<project name="telco-utils" default="dist" basedir=".">
 
     <!-- properties -->
     <property name="root.dir" location=".."/>
